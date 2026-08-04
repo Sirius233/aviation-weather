@@ -118,8 +118,8 @@ body {
 .alert ul { margin: 0; padding-left: 20px; }
 
 /* Windy */
-.windy-row { display: flex; gap: 10px; margin-top: 12px; overflow-x: auto; }
-.windy-frame { flex: 1; min-width: 260px; height: 350px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.windy-row { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.windy-frame { flex: 1; min-width: 280px; height: 350px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 
 /* Summary */
 .summary-card { text-align: center; padding: 20px; }
@@ -659,13 +659,22 @@ function renderAirportSection(city, metarFields, tafData, weatherHits, isDual) {
   let html = '<div class="card">';
   html += '<h2>' + dot + ' ' + city.name + ' ' + city.icao + ' · ' + city.airport + '</h2>';
 
-  // Radar & Windy embeds - no link jumps, all embedded
+  // Radar & Windy links
   html += '<h3>🌊 气象雷达 & 风场</h3>';
-  html += '<div class="windy-row">';
-  if (nmc) html += '<iframe class="windy-frame" src="' + nmc + '" loading="lazy"></iframe>';
-  html += '<iframe class="windy-frame" src="' + windyUrl(city.lat, city.lon, 'radar') + '" loading="lazy"></iframe>';
-  html += '<iframe class="windy-frame" src="' + windyUrl(city.lat, city.lon, 'wind') + '" loading="lazy"></iframe>';
-  html += '</div>';
+  html += '<table class="links-table"><tr><th>NMC 雷达</th><th>Windy 雷达</th><th>Windy 风场</th></tr><tr>';
+  if (nmc) html += '<td><a href="' + nmc + '" target="_blank">' + (NMC_NAMES[city.nmc]||city.nmc) + '雷达拼图</a></td>';
+  else html += '<td>N/A（境外）</td>';
+  html += '<td><a href="' + windyUrl(city.lat, city.lon, 'radar') + '" target="_blank">Windy 雷达</a></td>';
+  html += '<td><a href="' + windyUrl(city.lat, city.lon, 'wind') + '" target="_blank">Windy 风场</a></td>';
+  html += '</tr></table>';
+
+  // Windy iframes
+  if (!isDual) {
+    html += '<div class="windy-row">';
+    html += '<iframe class="windy-frame" src="' + windyUrl(city.lat, city.lon, 'radar') + '" loading="lazy"></iframe>';
+    html += '<iframe class="windy-frame" src="' + windyUrl(city.lat, city.lon, 'wind') + '" loading="lazy"></iframe>';
+    html += '</div>';
+  }
 
   // METAR
   if (!hasMetar) {
