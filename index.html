@@ -374,13 +374,19 @@ document.addEventListener('click',function(e) {
 // API & PARSING
 // ============================================================
 async function fetchMetar(icao) {
-  // Primary: fetch from cached data file (no CORS needed, refreshed every 10min via GitHub Actions)
+  // Primary: fetch from cached data JS file (no CORS needed, refreshed every 10min via GitHub Actions)
   try {
-    const resp = await fetch('data/metar.txt?_=' + Date.now());
-    if (resp.ok) {
-      const text = await resp.text();
-      // Filter lines containing the ICAO code
-      const lines = text.split('\n').filter(l => l.includes(icao) && l.trim());
+    if (!window.METAR_DATA) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'data/metar.js?_=' + Date.now();
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    if (window.METAR_DATA) {
+      const lines = window.METAR_DATA.split('\n').filter(l => l.includes(icao) && l.trim());
       if (lines.length > 0) return lines.join('\n');
     }
   } catch(e) {}
