@@ -47,12 +47,6 @@ body {
 .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -.5px; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.3); }
 .header .sub { font-size: 14px; color: rgba(255,255,255,.75); margin-top: 4px; }
 
-/* Mode toggle */
-.mode-toggle { display: inline-flex; gap: 2px; background: rgba(255,255,255,.15); backdrop-filter: blur(8px); border-radius: var(--radius-sm); padding: 3px; margin: 24px auto; }
-.mode-toggle button { padding: 8px 20px; border: none; background: transparent; color: rgba(255,255,255,.7); cursor: pointer; font-size: 14px; font-weight: 500; border-radius: 6px; transition: .15s; font-family: inherit; }
-.mode-toggle button.active { background: rgba(255,255,255,.95); color: var(--accent); box-shadow: var(--shadow-sm); }
-.mode-toggle button:hover:not(.active) { color: #fff; }
-
 /* Selectors */
 .selector-area { display: flex; gap: 12px; margin: 20px auto; flex-wrap: wrap; justify-content: center; max-width: 560px; }
 .selector { flex: 1; min-width: 200px; position: relative; }
@@ -755,7 +749,6 @@ function render() {
   btn.disabled = false;
 
   const results = document.getElementById('results');
-  const isDual = mode === 'dual';
 
   let html = '';
 
