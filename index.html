@@ -219,80 +219,50 @@ const NMC_NAMES = {
 };
 
 // ============================================================
-// ADVERSE WEATHER LOOKUP
+// ADVERSE WEATHER ANALYSIS (loaded from data/adverse-weather.js)
 // ============================================================
-const WEATHER_ITEMS = [
-  {
-    keywords: ['TS','TSRA','-TSRA','CB'],
-    name: '雷暴 / 积雨云',
-    desc: [
-      '严禁飞入积雨云和浓积云，严禁穿越雷雨；不要依靠目视表象判断雷暴内部湍流',
-      '绕飞间距：7500m以下 昼5NM/夜10NM | 7500-9000m 10NM | 9000m以上 20NM',
-      '云上绕飞保持间隔云顶1500m+；云顶>10000m不得从上部飞越',
-      '着陆航道5km/复飞航道3km内有雷雨→禁进近着陆',
-      '雷雨距机场20km内→考虑反方向起降/推迟/备降',
-      '尽可能从上风面绕飞，监听其他飞机偏航备降信息',
-      '误入后：系紧安全带肩带，选最短穿越航迹，避开结冰层，颠簸速度+防冰全开+灯光最亮'
-    ]
-  },
-  {
-    keywords: ['+TSRA','+SHRA'],
-    name: '强雷暴 / 强降水',
-    desc: [
-      '同雷暴处理；湿/污染跑道着陆距离×1.15，雨中进近最大侧风标准减半',
-      '大雨中用雨刷，监控跑道视程'
-    ]
-  },
-  {
-    keywords: ['TURB'],
-    name: '颠簸',
-    desc: [
-      '优先改变高度避开，其次改变航向，避开零度等温层；保持AP接通',
-      '安全带灯：轻度循1次→中度循2次→严重循3次；严重颠簸区避免起飞'
-    ]
-  },
-  {
-    keywords: ['WS','WIND SHEAR'],
-    name: '风切变',
-    desc: [
-      '识别微下击暴流征兆（风向风速突变、雷暴云底）',
-      '果断执行改出程序（最大推力+最佳爬升姿态）',
-      '预测性警告→延迟起飞/中断进近'
-    ]
-  },
-  {
-    keywords: ['ICE','FZDZ','FZRA'],
-    name: '积冰 / 冻雨',
-    desc: [
-      '防冰全开（皮托管、发动机、机翼），避开已知积冰区',
-      '改变高度寻暖层或-15℃以下低温区；避免放襟翼过久'
-    ]
-  },
-  {
-    keywords: ['GR'],
-    name: '冰雹',
-    desc: [
-      '同雷暴绕飞原则识别+规避',
-      '雹击后检查发动机参数异常、雷达罩/风挡损伤'
-    ]
-  },
-  {
-    keywords: ['SQ'],
-    name: '飑线',
-    desc: [
-      '雷暴+风切变双重风险，增大绕飞间距，关注前缘阵风锋',
-      '进近阶段警惕低空湍流'
-    ]
-  },
-  {
-    keywords: ['BR','FG'],
-    name: '低能见度',
-    desc: [
-      '严格按I/II/III类进近标准执行',
-      '低于标准立即复飞，勿勉强进近'
-    ]
+const WEATHER_SECTIONS = {
+  TS: { kw: ['TS','TSRA','-TSRA','CB','+TSRA','+SHRA'], title: '雷暴', section: '---\\n二、', endSection: /^---\\n三、/m },
+  TURB: { kw: ['TURB'], title: '颠簸', section: '---\\n三、', endSection: /^---\\n四、/m },
+  WS: { kw: ['WS','WIND SHEAR'], title: '风切变', section: '---\\n四、', endSection: /^---\\n五、/m },
+  FG: { kw: ['BR','FG','MIFG','BCFG','PRFG'], title: '低能见度', section: '---\\n五、', endSection: /^---\\n六、/m },
+  ICE: { kw: ['ICE','FZDZ','FZRA','FZFG'], title: '结冰/寒冷天气', section: '---\\n六、', endSection: /^---\\n七、/m },
+  GR: { kw: ['GR'], title: '冰雹（参见雷暴）', section: '---\\n二、', endSection: /^---\\n三、/m },
+  SQ: { kw: ['SQ'], title: '飑线（雷暴+风切变）', section: '---\\n二、', endSection: /^---\\n三、/m },
+};
+
+function getWeatherDoc() {
+  return window.ADVERSE_WEATHER || '';
+}
+
+function extractSection(doc, startMarker, endRegex) {
+  const start = doc.indexOf(startMarker);
+  if (start === -1) return '';
+  const rest = doc.substring(start);
+  const endMatch = rest.match(endRegex);
+  if (endMatch) return rest.substring(0, endMatch.index);
+  return rest;
+}
+
+function detectWeather(raw) {
+  if (!raw) return [];
+  const upper = raw.toUpperCase();
+  const hits = [];
+  const seen = new Set();
+  for (const [key, cfg] of Object.entries(WEATHER_SECTIONS)) {
+    const matched = cfg.kw.some(kw => {
+      const re = new RegExp('\\b' + kw.replace(/[+#-]/g, '\\$&') + '\\b', 'i');
+      return re.test(upper);
+    });
+    if (matched && !seen.has(key)) {
+      seen.add(key);
+      const doc = getWeatherDoc();
+      const content = extractSection(doc, cfg.section, cfg.endSection);
+      hits.push({ name: cfg.title, content: content || '（文档未加载，请稍后重试）' });
+    }
   }
-];
+  return hits;
+}
 
 // ============================================================
 // APP STATE
@@ -651,7 +621,9 @@ function statusDot(level) {
 // RENDER
 // ============================================================
 function renderAirportSection(city, metarFields, tafData, weatherHits, isDual) {
-  const level = weatherHits.length > 0 ? (weatherHits.some(h=>h.keywords.some(k=>['+TSRA','+SHRA','GR','SQ'].includes(k)))?'danger':'caution') : 'good';
+  const dangerKeywords = ['+TSRA','+SHRA','GR','SQ'];
+  const isDangerHit = (h) => dangerKeywords.some(k => h.name.includes(k));
+  const level = weatherHits.length > 0 ? (weatherHits.some(isDangerHit) ? 'danger' : 'caution') : 'good';
   const dot = statusDot(level);
   const nmc = nmcUrl(city.nmc);
   const hasMetar = !city.noMetar;
@@ -771,12 +743,7 @@ function render() {
     html += '<div class="card"><h2>⚠️ 不利天气分析</h2>';
     for (const hit of allHits) {
       html += '<h3 style="color:var(--red);">' + hit.name + '</h3>';
-      html += '<div class="alert alert-danger">';
-      html += '<ul style="margin:0;padding-left:18px;">';
-      for (const d of hit.desc) {
-        html += '<li style="margin-bottom:6px;">' + d + '</li>';
-      }
-      html += '</ul></div>';
+      html += '<div class="alert alert-danger" style="white-space:pre-wrap;font-size:12px;line-height:1.8;">' + hit.content.replace(/\r\n/g,'\n').replace(/\n/g,'<br>') + '</div>';
     }
     html += '</div>';
   }
@@ -791,7 +758,7 @@ function render() {
     if (!hasMetar && r.city.noMetar) {
       status = '🟡'; desc = '支线机场，METAR 不可用，请参考 Windy';
     } else if (r.weatherHits.length > 0) {
-      const isDanger = r.weatherHits.some(h => h.keywords.some(k => ['+TSRA','+SHRA','GR','SQ'].includes(k)));
+      const isDanger = r.weatherHits.some(h => dangerKeywords.some(k => h.name.includes(k)));
       status = isDanger ? '🔴' : '🟡';
       desc = r.weatherHits.map(h => h.name).join('、');
     }
