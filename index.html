@@ -222,7 +222,7 @@ const NMC_NAMES = {
 // ADVERSE WEATHER ANALYSIS (loaded from data/adverse-weather.js)
 // ============================================================
 const WEATHER_SECTIONS = {
-  TS: { kw: ['TS','TSRA','-TSRA','+TSRA','CB','SHRA','-SHRA','+SHRA','RA','-RA','+RA','DZ','-DZ','+DZ','SN','-SN','+SN','SG','GS','PL','GR','SQ','VCTS','VCSH'], title: '雷暴/降水', section: '---\\n二、', endSection: /^---\\n三、/m },
+  TS: { kw: ['TS','TSRA','-TSRA','+TSRA','RETS','CB','SHRA','-SHRA','+SHRA','RA','-RA','+RA','DZ','-DZ','+DZ','SN','-SN','+SN','SG','GS','PL','GR','SQ','VCTS','VCSH'], title: '雷暴/降水', section: '---\\n二、雷暴', endSection: /^---\\n三、/m },
   TURB: { kw: ['TURB'], title: '颠簸', section: '---\\n三、', endSection: /^---\\n四、/m },
   WS: { kw: ['WS','WIND SHEAR'], title: '风切变', section: '---\\n四、', endSection: /^---\\n五、/m },
   FG: { kw: ['BR','FG','MIFG','BCFG','PRFG','HZ','FU','DU','SA','VA'], title: '低能见度', section: '---\\n五、', endSection: /^---\\n六、/m },
