@@ -1,0 +1,32 @@
+name: Update METAR data
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch METAR/TAF data
+        run: |
+          mkdir -p data
+          # All 40 airports
+          ICAOS="ZBAA ZSPD ZSSS ZGGG ZGSZ ZUUU ZUCK ZSHC ZSNJ ZHHH ZLXY ZSAM ZHCC ZBTJ ZYTL ZYTX ZYHB ZYCC ZBYN ZJSY ZJHK ZPPP ZUGY ZGHA ZWWW ZLLL ZSJN ZSQD ZSFZ ZSCN ZGNN ZBSJ ZBHH ZBCF ZPJH WMKP WSSS VTBS RJTT RKSI"
+          curl -s "https://aviationweather.gov/api/data/metar?ids=${ICAOS}&taf=true&format=raw" -o data/metar.txt
+          ls -la data/metar.txt
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          git add data/metar.txt
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Update METAR/TAF data"
+            git push
+          fi

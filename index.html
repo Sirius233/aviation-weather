@@ -374,13 +374,23 @@ document.addEventListener('click',function(e) {
 // API & PARSING
 // ============================================================
 async function fetchMetar(icao) {
+  // Primary: fetch from cached data file (no CORS needed, refreshed every 10min via GitHub Actions)
+  try {
+    const resp = await fetch('data/metar.txt?_=' + Date.now());
+    if (resp.ok) {
+      const text = await resp.text();
+      // Filter lines containing the ICAO code
+      const lines = text.split('\n').filter(l => l.includes(icao) && l.trim());
+      if (lines.length > 0) return lines.join('\n');
+    }
+  } catch(e) {}
+  // Fallback: try direct
   const url = 'https://aviationweather.gov/api/data/metar?ids=' + icao + '&taf=true';
-  // Try direct first
   try {
     const resp = await fetch(url);
     if (resp.ok) return await resp.text();
   } catch(e) {}
-  // Multiple CORS proxy fallbacks
+  // Fallback: CORS proxies
   const proxies = [
     u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
     u => 'https://corsproxy.io/?' + encodeURIComponent(u),
