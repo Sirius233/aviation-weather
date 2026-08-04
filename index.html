@@ -587,20 +587,6 @@ function utcToBeijing(utc) {
   return utc;
 }
 
-function detectWeather(raw) {
-  if (!raw) return [];
-  const upper = raw.toUpperCase();
-  const hits = [];
-  for (const item of WEATHER_ITEMS) {
-    const matched = item.keywords.some(kw => {
-      const re = new RegExp('\\b' + kw.replace(/[+#-]/g, '\\$&') + '\\b', 'i');
-      return re.test(upper);
-    });
-    if (matched) hits.push(item);
-  }
-  return hits;
-}
-
 function windyUrl(lat, lon, overlay) {
   return 'https://embed.windy.com/embed2.html?lat=' + lat + '&lon=' + lon +
     '&zoom=8&overlay=' + overlay + '&menu=&metricWind=kt&metricTemp=%C2%B0C';
