@@ -845,8 +845,8 @@ async function query() {
       const city = cities[i];
       const icao = city.icao;
 
-      // Find matching block for this ICAO
-      const block = blocks.find(b => b.includes(icao)) || '';
+      // Find all matching blocks for this ICAO and join
+      const block = blocks.filter(b => b.includes(icao)).join(' ');
 
       const parsed = parseMetar(block);
       const metarFields = parsed && parsed.metar ? extractMetarFields(parsed.metar) : null;
