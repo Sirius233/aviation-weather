@@ -228,6 +228,7 @@ const WEATHER_SECTIONS = {
   FG: { kw: ['BR','FG','MIFG','BCFG','PRFG','HZ','FU','DU','SA','VA'], title: '低能见度', section: '---\\n五、', endSection: /^---\\n六、/m },
   ICE: { kw: ['ICE','FZDZ','FZRA','FZFG','BLSN','BLSA','BLDU'], title: '结冰/寒冷天气', section: '---\\n六、', endSection: /^---\\n七、/m },
 };
+const dangerKeywords = ['+TSRA','+SHRA','GR','SQ'];
 
 function getWeatherDoc() {
   return window.ADVERSE_WEATHER || '';
@@ -615,7 +616,6 @@ function statusDot(level) {
 // RENDER
 // ============================================================
 function renderAirportSection(city, metarFields, tafData, weatherHits, isDual) {
-  const dangerKeywords = ['+TSRA','+SHRA','GR','SQ'];
   const isDangerHit = (h) => dangerKeywords.some(k => h.name.includes(k));
   const level = weatherHits.length > 0 ? (weatherHits.some(isDangerHit) ? 'danger' : 'caution') : 'good';
   const dot = statusDot(level);
