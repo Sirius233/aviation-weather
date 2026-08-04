@@ -375,16 +375,26 @@ document.addEventListener('click',function(e) {
 // ============================================================
 async function fetchMetar(icao) {
   const url = 'https://aviationweather.gov/api/data/metar?ids=' + icao + '&taf=true';
-  // Try direct first, fallback to proxy
+  // Try direct first
   try {
     const resp = await fetch(url);
     if (resp.ok) return await resp.text();
   } catch(e) {}
-  // CORS proxy fallback
-  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-  const resp = await fetch(proxyUrl);
-  if (!resp.ok) throw new Error('HTTP ' + resp.status);
-  return await resp.text();
+  // Multiple CORS proxy fallbacks
+  const proxies = [
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+    u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+  ];
+  let lastErr = null;
+  for (const make of proxies) {
+    try {
+      const resp = await fetch(make(url));
+      if (resp.ok) return await resp.text();
+      lastErr = new Error('HTTP ' + resp.status);
+    } catch(e) { lastErr = e; }
+  }
+  throw lastErr || new Error('所有代理失败');
 }
 
 function parseMetar(raw) {
