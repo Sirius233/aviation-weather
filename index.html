@@ -680,13 +680,11 @@ function renderAirportSection(city, metarFields, tafData, weatherHits, isDual) {
     html += '<h3>⚠️ 暂无报文数据</h3>';
     html += '<div class="alert alert-danger">未能获取 ' + city.icao + ' 的 METAR/TAF 数据，请稍后重试。</div>';
   } else {
-    // Raw METAR/TAF
-    html += '<h3>📡 原始报文</h3>';
+    // METAR
+    html += '<h3>📡 METAR 报</h3>';
     html += '<div class="code-block">' + metarFields.raw + '</div>';
-    if (tafData) html += '<div class="code-block">' + tafData.raw + '</div>';
 
     // Parsed analysis
-    html += '<h3>🔍 报文分析</h3>';
     html += '<table class="analysis-table">';
     html += '<tr><td>时间</td><td>' + utcToBeijing(metarFields.time) + '</td></tr>';
     html += '<tr><td>风</td><td>' + formatWind(metarFields.wind) + '</td></tr>';
@@ -701,9 +699,11 @@ function renderAirportSection(city, metarFields, tafData, weatherHits, isDual) {
     html += '<tr><td>趋势</td><td>' + (metarFields.trend || 'N/A') + '</td></tr>';
     html += '</table>';
 
-    // TAF detailed
+    // TAF
     if (tafData) {
-      html += '<h3>📋 TAF 详情</h3>';
+      html += '<h3>📋 TAF 报</h3>';
+      html += '<div class="code-block">' + tafData.raw + '</div>';
+
       html += '<table class="taf-table">';
       html += '<tr><td>有效时段</td><td>' + utcToBeijing(tafData.validFrom + '/' + tafData.validTo) + '</td></tr>';
       if (tafData.mainBody) html += '<tr><td>主体</td><td>' + tafData.mainBody + '</td></tr>';
