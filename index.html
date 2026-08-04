@@ -155,21 +155,11 @@ body {
     <div class="sub">METAR · TAF · 雷达 · 风场 · 不利天气分析</div>
   </div>
 
-  <div class="mode-toggle">
-    <button id="btn-single" class="active" onclick="setMode('single')">机场</button>
-    <button id="btn-dual" onclick="setMode('dual')">起降机场</button>
-  </div>
-
   <div class="selector-area">
     <div class="selector">
-      <label id="label1">出发机场</label>
+      <label>选择机场</label>
       <input class="select-input" id="input1" placeholder="城市名或 ICAO 代码" autocomplete="off" oninput="filterCities(1)" onfocus="showDropdown(1)">
       <div class="dropdown" id="dropdown1"></div>
-    </div>
-    <div class="selector" id="selector2" style="display:none;">
-      <label>到达机场</label>
-      <input class="select-input" id="input2" placeholder="城市名或 ICAO 代码" autocomplete="off" oninput="filterCities(2)" onfocus="showDropdown(2)">
-      <div class="dropdown" id="dropdown2"></div>
     </div>
   </div>
 
@@ -313,23 +303,11 @@ const WEATHER_ITEMS = [
 // ============================================================
 // APP STATE
 // ============================================================
-let mode = 'single';
 let selected1 = null;
-let selected2 = null;
 
 // ============================================================
 // UI FUNCTIONS
 // ============================================================
-function setMode(m) {
-  mode = m;
-  document.getElementById('btn-single').classList.toggle('active', m==='single');
-  document.getElementById('btn-dual').classList.toggle('active', m==='dual');
-  document.getElementById('selector2').style.display = m==='dual' ? '' : 'none';
-  document.getElementById('label1').textContent = m==='dual' ? '出发机场' : '选择机场';
-  document.getElementById('results').classList.remove('show');
-  document.getElementById('results').innerHTML = '';
-}
-
 function findCity(q) {
   const qq = q.toUpperCase().trim();
   if (!qq) return [];
@@ -784,13 +762,7 @@ function render() {
   // Render airport 1
   const r1 = airportResults[0];
   if (r1) {
-    const rendered = renderAirportSection(r1.city, r1.metarFields, r1.tafData, r1.weatherHits, isDual);
-    html += rendered.html;
-  }
-
-  if (isDual && airportResults[1]) {
-    const r2 = airportResults[1];
-    const rendered = renderAirportSection(r2.city, r2.metarFields, r2.tafData, r2.weatherHits, isDual);
+    const rendered = renderAirportSection(r1.city, r1.metarFields, r1.tafData, r1.weatherHits);
     html += rendered.html;
   }
 
@@ -836,13 +808,6 @@ function render() {
     }
     html += '<div class="airport-summary">' + status + ' <strong>' + r.city.name + ' ' + r.city.icao + '</strong>：' + desc + '</div>';
   }
-
-  if (isDual && airportResults.length === 2) {
-    const r1 = airportResults[0], r2 = airportResults[1];
-    if (r1 && r2 && r1.weatherHits.length === 0 && r2.weatherHits.length === 0) {
-      html += '<p style="margin-top:12px;color:var(--green);">✅ 航路全程天气良好，适航。</p>';
-    }
-  }
   html += '</div>';
 
   results.innerHTML = html;
@@ -860,20 +825,11 @@ async function query() {
   if (btn.disabled) return;
 
   if (!selected1) {
-    alert('请先选择出发机场');
+    alert('请先选择机场');
     return;
   }
-  if (mode === 'dual' && !selected2) {
-    alert('请选择目的机场');
-    return;
-  }
-
-  btn.classList.add('loading');
-  btn.disabled = true;
-  airportResults = [];
 
   const cities = [selected1];
-  if (mode === 'dual') cities.push(selected2);
 
   const icaoCodes = cities.map(c => c.icao).join(',');
 
@@ -924,8 +880,6 @@ async function query() {
 
 // Initialize
 // Initialize
-setMode('single');
-
 // ============================================================
 // SPACE BACKGROUND - stars + real-time Earth from space
 // ============================================================
