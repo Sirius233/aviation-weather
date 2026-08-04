@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>航空气象查询</title>
+<style>
+:root {
+  --bg: #f5f6fa;
+  --card-bg: #fff;
+  --text: #2d3436;
+  --text-secondary: #636e72;
+  --border: #dfe6e9;
+  --accent: #0984e3;
+  --accent-hover: #0767b3;
+  --green: #00b894;
+  --yellow: #fdcb6e;
+  --yellow-text: #e17055;
+  --red: #d63031;
+  --red-bg: #ffeaa7;
+  --danger-bg: #fff5f5;
+  --danger-border: #feb2b2;
+  --code-bg: #2d3436;
+  --code-text: #dfe6e9;
+  --shadow: 0 1px 3px rgba(0,0,0,.08);
+  --radius: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
+.container { max-width:900px; margin:0 auto; padding:12px 16px 40px; }
+
+/* Header */
+.header { text-align:center; padding:24px 0 16px; }
+.header h1 { font-size:22px; font-weight:700; margin-bottom:4px; }
+.header .sub { font-size:13px; color:var(--text-secondary); }
+.mode-toggle { display:flex; justify-content:center; gap:0; margin:16px 0; background:var(--card-bg); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); }
+.mode-toggle button { flex:1; max-width:160px; padding:10px 0; border:none; background:none; font-size:14px; color:var(--text-secondary); cursor:pointer; transition:.2s; font-family:inherit; }
+.mode-toggle button.active { background:var(--accent); color:#fff; }
+.mode-toggle button:first-child { border-radius:var(--radius) 0 0 var(--radius); }
+.mode-toggle button:last-child { border-radius:0 var(--radius) var(--radius) 0; }
+
+/* Selector */
+.selector-area { display:flex; gap:12px; margin:12px 0; flex-wrap:wrap; }
+.selector { flex:1; min-width:200px; position:relative; }
+.selector label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:6px; font-weight:600; }
+.select-input { width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; background:var(--card-bg); color:var(--text); outline:none; transition:.2s; }
+.select-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(9,132,227,.1); }
+.dropdown { display:none; position:absolute; top:100%; left:0; right:0; background:var(--card-bg); border:1.5px solid var(--border); border-radius:var(--radius); margin-top:2px; max-height:240px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,.1); }
+.dropdown.show { display:block; }
+.dropdown-item { padding:10px 14px; cursor:pointer; font-size:14px; transition:.15s; border-bottom:1px solid var(--border); }
+.dropdown-item:last-child { border-bottom:none; }
+.dropdown-item:hover { background:rgba(9,132,227,.06); }
+.dropdown-item .city { font-weight:600; }
+.dropdown-item .info { font-size:11px; color:var(--text-secondary); margin-left:6px; }
+.no-match { padding:12px 14px; color:var(--text-secondary); font-size:13px; text-align:center; }
+
+/* Query button */
+.btn-area { text-align:center; margin:12px 0 24px; }
+.btn-query { padding:12px 48px; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:16px; font-weight:600; cursor:pointer; transition:.2s; font-family:inherit; }
+.btn-query:hover { background:var(--accent-hover); }
+.btn-query:disabled { opacity:.6; cursor:not-allowed; }
+.btn-query .spinner { display:none; width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; margin-right:8px; vertical-align:middle; }
+.btn-query.loading .spinner { display:inline-block; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Results */
+.results { display:none; }
+.results.show { display:block; }
+.card { background:var(--card-bg); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:var(--shadow); }
+.card h2 { font-size:16px; margin-bottom:14px; padding-bottom:8px; border-bottom:2px solid var(--border); display:flex; align-items:center; gap:8px; }
+.card h3 { font-size:14px; margin:14px 0 8px; color:var(--text-secondary); }
+
+/* Status dots */
+.status-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; }
+.status-green { background:var(--green); }
+.status-yellow { background:var(--yellow); }
+.status-red { background:var(--red); }
+
+/* Links table */
+.links-table { width:100%; border-collapse:collapse; font-size:13px; }
+.links-table th, .links-table td { padding:8px 6px; text-align:center; border-bottom:1px solid var(--border); }
+.links-table th { color:var(--text-secondary); font-weight:600; font-size:12px; }
+.links-table a { color:var(--accent); text-decoration:none; font-weight:500; }
+.links-table a:hover { text-decoration:underline; }
+
+/* Code block */
+.code-block { background:var(--code-bg); color:var(--code-text); padding:14px; border-radius:8px; font-family:'SF Mono','Consolas','Monaco',monospace; font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin:10px 0; line-height:1.6; }
+
+/* Analysis table */
+.analysis-table { width:100%; border-collapse:collapse; font-size:14px; }
+.analysis-table td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+.analysis-table td:first-child { color:var(--text-secondary); font-weight:500; white-space:nowrap; width:90px; }
+.analysis-table .danger { font-weight:700; color:var(--red); }
+
+/* TAF table */
+.taf-table { width:100%; border-collapse:collapse; font-size:14px; }
+.taf-table td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+.taf-table td:first-child { color:var(--text-secondary); font-weight:500; white-space:nowrap; width:100px; }
+
+/* Tempo table */
+.tempo-table { width:100%; border-collapse:collapse; font-size:14px; }
+.tempo-table th { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-secondary); }
+.tempo-table td { padding:7px 10px; border-bottom:1px solid var(--border); }
+
+/* Alert box */
+.alert { padding:12px 16px; border-radius:8px; margin:10px 0; font-size:13px; line-height:1.7; }
+.alert-danger { background:var(--danger-bg); border:1px solid var(--danger-border); }
+.alert-success { background:#f0fff4; border:1px solid #c6f6d5; color:#276749; }
+
+/* Windy iframes */
+.windy-row { display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; }
+.windy-frame { flex:1; min-width:280px; height:350px; border:none; border-radius:8px; }
+
+/* Summary */
+.summary-card { text-align:center; padding:24px; }
+.summary-card .airport-summary { font-size:16px; margin:8px 0; }
+.summary-card .status-text { font-weight:700; }
+
+/* Error */
+.error-msg { padding:12px; background:#fff5f5; border:1px solid #feb2b2; border-radius:8px; color:var(--red); font-size:13px; }
+
+/* Responsive */
+@media (max-width:600px) {
+  .container { padding:8px 10px 30px; }
+  .header h1 { font-size:18px; }
+  .card { padding:14px; }
+  .analysis-table td:first-child { width:70px; font-size:12px; }
+  .analysis-table td { font-size:13px; }
+  .code-block { font-size:10px; padding:10px; }
+  .windy-frame { min-width:100%; height:280px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>航空气象查询</h1>
+    <div class="sub">METAR/TAF · NMC 雷达 · Windy 可视化 · 不利天气分析</div>
+  </div>
+
+  <div class="mode-toggle">
+    <button id="btn-single" class="active" onclick="setMode('single')">单机场</button>
+    <button id="btn-dual" onclick="setMode('dual')">双机场航路</button>
+  </div>
+
+  <div class="selector-area">
+    <div class="selector">
+      <label id="label1">选择机场</label>
+      <input class="select-input" id="input1" placeholder="输入城市名 / ICAO 代码..." autocomplete="off" oninput="filterCities(1)" onfocus="showDropdown(1)">
+      <div class="dropdown" id="dropdown1"></div>
+    </div>
+    <div class="selector" id="selector2" style="display:none;">
+      <label>目的机场</label>
+      <input class="select-input" id="input2" placeholder="输入城市名 / ICAO 代码..." autocomplete="off" oninput="filterCities(2)" onfocus="showDropdown(2)">
+      <div class="dropdown" id="dropdown2"></div>
+    </div>
+  </div>
+
+  <div class="btn-area">
+    <button class="btn-query" id="btn-query" onclick="query()">
+      <span class="spinner"></span> 查询天气
+    </button>
+  </div>
+
+  <div class="results" id="results"></div>
+</div>
+
+<script>
+// ============================================================
+// CITY DATA (40 airports)
+// ============================================================
+const CITIES = [
+  {name:'北京',icao:'ZBAA',lat:40.08,lon:116.58,nmc:'huabei',airport:'首都',intl:false},
+  {name:'上海浦东',icao:'ZSPD',lat:31.14,lon:121.79,nmc:'huadong',airport:'浦东',intl:false},
+  {name:'上海虹桥',icao:'ZSSS',lat:31.20,lon:121.34,nmc:'huadong',airport:'虹桥',intl:false},
+  {name:'广州',icao:'ZGGG',lat:23.39,lon:113.31,nmc:'huanan',airport:'白云',intl:false},
+  {name:'深圳',icao:'ZGSZ',lat:22.64,lon:113.81,nmc:'huanan',airport:'宝安',intl:false},
+  {name:'成都',icao:'ZUUU',lat:30.58,lon:103.95,nmc:'xinan',airport:'双流',intl:false},
+  {name:'重庆',icao:'ZUCK',lat:29.72,lon:106.64,nmc:'xinan',airport:'江北',intl:false},
+  {name:'杭州',icao:'ZSHC',lat:30.23,lon:120.43,nmc:'huadong',airport:'萧山',intl:false},
+  {name:'南京',icao:'ZSNJ',lat:31.74,lon:118.86,nmc:'huadong',airport:'禄口',intl:false},
+  {name:'武汉',icao:'ZHHH',lat:30.78,lon:114.21,nmc:'huazhong',airport:'天河',intl:false},
+  {name:'西安',icao:'ZLXY',lat:34.44,lon:108.75,nmc:'xibei',airport:'咸阳',intl:false},
+  {name:'厦门',icao:'ZSAM',lat:24.48,lon:118.09,nmc:'huanan',airport:'高崎',intl:false},
+  {name:'郑州',icao:'ZHCC',lat:34.52,lon:113.84,nmc:'huazhong',airport:'新郑',intl:false},
+  {name:'天津',icao:'ZBTJ',lat:39.12,lon:117.35,nmc:'huabei',airport:'滨海',intl:false},
+  {name:'大连',icao:'ZYTL',lat:38.97,lon:121.54,nmc:'dongbei',airport:'周水子',intl:false},
+  {name:'沈阳',icao:'ZYTX',lat:41.64,lon:123.48,nmc:'dongbei',airport:'桃仙',intl:false},
+  {name:'哈尔滨',icao:'ZYHB',lat:45.62,lon:126.25,nmc:'dongbei',airport:'太平',intl:false},
+  {name:'长春',icao:'ZYCC',lat:43.90,lon:125.22,nmc:'dongbei',airport:'龙嘉',intl:false},
+  {name:'太原',icao:'ZBYN',lat:37.75,lon:112.63,nmc:'huabei',airport:'武宿',intl:false},
+  {name:'三亚',icao:'ZJSY',lat:18.30,lon:109.41,nmc:'huanan',airport:'凤凰',intl:false},
+  {name:'海口',icao:'ZJHK',lat:19.93,lon:110.46,nmc:'huanan',airport:'美兰',intl:false},
+  {name:'昆明',icao:'ZPPP',lat:25.10,lon:102.74,nmc:'xinan',airport:'长水',intl:false},
+  {name:'贵阳',icao:'ZUGY',lat:26.54,lon:106.80,nmc:'xinan',airport:'龙洞堡',intl:false},
+  {name:'长沙',icao:'ZGHA',lat:28.19,lon:113.22,nmc:'huazhong',airport:'黄花',intl:false},
+  {name:'乌鲁木齐',icao:'ZWWW',lat:43.91,lon:87.47,nmc:'xibei',airport:'地窝堡',intl:false},
+  {name:'兰州',icao:'ZLLL',lat:36.52,lon:103.62,nmc:'xibei',airport:'中川',intl:false},
+  {name:'济南',icao:'ZSJN',lat:36.86,lon:117.22,nmc:'huadong',airport:'遥墙',intl:false},
+  {name:'青岛',icao:'ZSQD',lat:36.27,lon:120.37,nmc:'huadong',airport:'流亭',intl:false},
+  {name:'福州',icao:'ZSFZ',lat:25.94,lon:119.66,nmc:'huadong',airport:'长乐',intl:false},
+  {name:'南昌',icao:'ZSCN',lat:28.86,lon:115.90,nmc:'huadong',airport:'昌北',intl:false},
+  {name:'南宁',icao:'ZGNN',lat:22.61,lon:108.18,nmc:'huanan',airport:'吴圩',intl:false},
+  {name:'石家庄',icao:'ZBSJ',lat:38.28,lon:114.70,nmc:'huabei',airport:'正定',intl:false},
+  {name:'呼和浩特',icao:'ZBHH',lat:40.85,lon:111.82,nmc:'huabei',airport:'白塔',intl:false},
+  {name:'赤峰',icao:'ZBCF',lat:42.28,lon:118.92,nmc:'huabei',airport:'玉龙',intl:false,noMetar:true},
+  {name:'西双版纳',icao:'ZPJH',lat:21.97,lon:100.76,nmc:'xinan',airport:'嘎洒',intl:false,noMetar:true},
+  {name:'槟城',icao:'WMKP',lat:5.30,lon:100.28,nmc:null,airport:'马来西亚',intl:true},
+  {name:'新加坡',icao:'WSSS',lat:1.36,lon:103.99,nmc:null,airport:'樟宜',intl:true},
+  {name:'曼谷',icao:'VTBS',lat:13.69,lon:100.75,nmc:null,airport:'素万那普',intl:true},
+  {name:'东京',icao:'RJTT',lat:35.55,lon:139.78,nmc:null,airport:'羽田',intl:true},
+  {name:'首尔',icao:'RKSI',lat:37.46,lon:126.44,nmc:null,airport:'仁川',intl:true},
+];
+
+const NMC_NAMES = {
+  huabei:'华北',huadong:'华东',huanan:'华南',huazhong:'华中',
+  xinan:'西南',xibei:'西北',dongbei:'东北'
+};
+
+// ============================================================
+// ADVERSE WEATHER LOOKUP
+// ============================================================
+const WEATHER_ITEMS = [
+  {
+    keywords: ['TS','TSRA','-TSRA','CB'],
+    name: '雷暴 / 积雨云',
+    desc: [
+      '严禁飞入积雨云和浓积云，严禁穿越雷雨；不要依靠目视表象判断雷暴内部湍流',
+      '绕飞间距：7500m以下 昼5NM/夜10NM | 7500-9000m 10NM | 9000m以上 20NM',
+      '云上绕飞保持间隔云顶1500m+；云顶>10000m不得从上部飞越',
+      '着陆航道5km/复飞航道3km内有雷雨→禁进近着陆',
+      '雷雨距机场20km内→考虑反方向起降/推迟/备降',
+      '尽可能从上风面绕飞，监听其他飞机偏航备降信息',
+      '误入后：系紧安全带肩带，选最短穿越航迹，避开结冰层，颠簸速度+防冰全开+灯光最亮'
+    ]
+  },
+  {
+    keywords: ['+TSRA','+SHRA'],
+    name: '强雷暴 / 强降水',
+    desc: [
+      '同雷暴处理；湿/污染跑道着陆距离×1.15，雨中进近最大侧风标准减半',
+      '大雨中用雨刷，监控跑道视程'
+    ]
+  },
+  {
+    keywords: ['TURB'],
+    name: '颠簸',
+    desc: [
+      '优先改变高度避开，其次改变航向，避开零度等温层；保持AP接通',
+      '安全带灯：轻度循1次→中度循2次→严重循3次；严重颠簸区避免起飞'
+    ]
+  },
+  {
+    keywords: ['WS','WIND SHEAR'],
+    name: '风切变',
+    desc: [
+      '识别微下击暴流征兆（风向风速突变、雷暴云底）',
+      '果断执行改出程序（最大推力+最佳爬升姿态）',
+      '预测性警告→延迟起飞/中断进近'
+    ]
+  },
+  {
+    keywords: ['ICE','FZDZ','FZRA'],
+    name: '积冰 / 冻雨',
+    desc: [
+      '防冰全开（皮托管、发动机、机翼），避开已知积冰区',
+      '改变高度寻暖层或-15℃以下低温区；避免放襟翼过久'
+    ]
+  },
+  {
+    keywords: ['GR'],
+    name: '冰雹',
+    desc: [
+      '同雷暴绕飞原则识别+规避',
+      '雹击后检查发动机参数异常、雷达罩/风挡损伤'
+    ]
+  },
+  {
+    keywords: ['SQ'],
+    name: '飑线',
+    desc: [
+      '雷暴+风切变双重风险，增大绕飞间距，关注前缘阵风锋',
+      '进近阶段警惕低空湍流'
+    ]
+  },
+  {
+    keywords: ['BR','FG'],
+    name: '低能见度',
+    desc: [
+      '严格按I/II/III类进近标准执行',
+      '低于标准立即复飞，勿勉强进近'
+    ]
+  }
+];
+
+// ============================================================
+// APP STATE
+// ============================================================
+let mode = 'single';
+let selected1 = null;
+let selected2 = null;
+
+// ============================================================
+// UI FUNCTIONS
+// ============================================================
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-single').classList.toggle('active', m==='single');
+  document.getElementById('btn-dual').classList.toggle('active', m==='dual');
+  document.getElementById('selector2').style.display = m==='dual' ? '' : 'none';
+  document.getElementById('label1').textContent = m==='dual' ? '出发机场' : '选择机场';
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('results').innerHTML = '';
+}
+
+function findCity(q) {
+  const qq = q.toUpperCase().trim();
+  if (!qq) return [];
+  return CITIES.filter(c =>
+    c.icao.includes(qq) || c.name.includes(q) ||
+    c.airport.includes(q) || (c.name+' '+c.airport).includes(q)
+  ).slice(0, 8);
+}
+
+function filterCities(n) {
+  const input = document.getElementById('input'+n);
+  const dropdown = document.getElementById('dropdown'+n);
+  const matches = findCity(input.value);
+  if (matches.length === 0) {
+    dropdown.innerHTML = '<div class="no-match">未找到匹配机场</div>';
+  } else {
+    dropdown.innerHTML = matches.map(c =>
+      `<div class="dropdown-item" onclick="selectCity(${n},'${c.icao}')">
+        <span class="city">${c.name} ${c.icao}</span>
+        <span class="info">${c.airport}${c.noMetar?' ⚠无METAR':''}${c.intl?' 🌐':''}</span>
+      </div>`
+    ).join('');
+  }
+  dropdown.classList.add('show');
+}
+
+function showDropdown(n) {
+  const input = document.getElementById('input'+n);
+  if (input.value) filterCities(n);
+  else {
+    const dropdown = document.getElementById('dropdown'+n);
+    dropdown.innerHTML = CITIES.map(c =>
+      `<div class="dropdown-item" onclick="selectCity(${n},'${c.icao}')">
+        <span class="city">${c.name} ${c.icao}</span>
+        <span class="info">${c.airport}${c.noMetar?' ⚠无METAR':''}${c.intl?' 🌐':''}</span>
+      </div>`
+    ).join('');
+    dropdown.classList.add('show');
+  }
+}
+
+function selectCity(n, icao) {
+  const city = CITIES.find(c => c.icao === icao);
+  document.getElementById('input'+n).value = city.name + ' ' + city.icao;
+  document.getElementById('dropdown'+n).classList.remove('show');
+  if (n === 1) selected1 = city;
+  else selected2 = city;
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click',function(e) {
+  if (!e.target.closest('.selector')) {
+    document.getElementById('dropdown1').classList.remove('show');
+    document.getElementById('dropdown2').classList.remove('show');
+  }
+});
+
+// ============================================================
+// API & PARSING
+// ============================================================
+async function fetchMetar(icao) {
+  const url = 'https://aviationweather.gov/api/data/metar?ids=' + icao + '&taf=true';
+  // Try direct first, fallback to proxy
+  try {
+    const resp = await fetch(url);
+    if (resp.ok) return await resp.text();
+  } catch(e) {}
+  // CORS proxy fallback
+  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+  const resp = await fetch(proxyUrl);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return await resp.text();
+}
+
+function parseMetar(raw) {
+  if (!raw || raw.trim() === '') return null;
+  const lines = raw.split('\n').filter(l => l.trim());
+  const result = { metar: null, taf: null };
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('METAR') || trimmed.match(/^[A-Z]{4}\s\d{6}Z/)) {
+      result.metar = trimmed;
+    } else if (trimmed.startsWith('TAF')) {
+      result.taf = result.taf ? result.taf + ' ' + trimmed : trimmed;
+    }
+  }
+  return result;
+}
+
+function extractMetarFields(metar) {
+  if (!metar) return null;
+  const parts = metar.split(/\s+/);
+  const fields = {
+    raw: metar,
+    icao: parts[0] === 'METAR' ? parts[1] : parts[0],
+    time: '',
+    wind: '',
+    visibility: '',
+    weather: '',
+    clouds: [],
+    tempDew: '',
+    qnh: '',
+    trend: ''
+  };
+
+  let idx = parts[0] === 'METAR' ? 2 : 1;
+  // Time
+  if (idx < parts.length && /^\d{6}Z$/.test(parts[idx])) {
+    fields.time = parts[idx];
+    idx++;
+  }
+  // AUTO
+  if (idx < parts.length && parts[idx] === 'AUTO') idx++;
+  // Wind
+  const windIdx = parts.findIndex((p,i) => i >= idx && /^\d{5}(G\d{2,3})?(MPS|KT|KPH)$/i.test(p));
+  if (windIdx >= idx) {
+    fields.wind = parts[windIdx];
+    // Weather between wind and idx
+    const wxParts = [];
+    for (let i = idx; i < windIdx; i++) {
+      if (parts[i] !== 'AUTO') wxParts.push(parts[i]);
+    }
+    if (wxParts.length > 0) fields.visibility = wxParts.join(' ');
+    idx = windIdx + 1;
+  }
+  // Visibility
+  let visParts = [];
+  while (idx < parts.length) {
+    const p = parts[idx];
+    if (p === 'CAVOK') { visParts.push('CAVOK'); idx++; break; }
+    if (/^\d{4}$/.test(p)) { visParts.push(p); idx++; }
+    else if (/^\d{4}(N|NE|E|SE|S|SW|W|NW|NNE|ENE|ESE|SSE|SSW|WSW|WNW|NNW)$/.test(p)) {visParts.push(p); idx++; }
+    else if (p === '9999') { visParts.push('9999'); idx++; }
+    else break;
+  }
+  if (visParts.length > 0) fields.visibility = visParts.join(' ');
+  // Weather phenomena
+  const wxPhenomena = ['-TSRA','+TSRA','TSRA','-SHRA','+SHRA','SHRA','-RA','+RA','RA','-DZ','+DZ','DZ','-SN','+SN','SN','-GR','+GR','GR','-SG','SG','-GS','GS','-PL','PL','TS','SQ','BR','FG','FU','HZ','DU','SA','VA','DS','SS','PO','FC','MIFG','BCFG','PRFG','FZDZ','FZRA','FZFG','BLSN','BLSA','BLDU','DRSN','DRSA','DRDU','VCTS','VCSH','VCBLSN'];
+  const wxIdx = parts.findIndex((p,i) => i >= idx && wxPhenomena.includes(p));
+  if (wxIdx >= idx) {
+    fields.weather = parts[wxIdx];
+    idx = wxIdx + 1;
+  }
+  // Clouds
+  const cloudTypes = ['FEW','SCT','BKN','OVC','NSC','NCD','VV','TCU','CB'];
+  while (idx < parts.length) {
+    const cloudMatch = cloudTypes.some(ct => parts[idx].startsWith(ct));
+    if (!cloudMatch) break;
+    fields.clouds.push(parts[idx]);
+    idx++;
+  }
+  // Temp/Dew
+  if (idx < parts.length && /^M?\d{2}\/M?\d{2}$/.test(parts[idx])) {
+    fields.tempDew = parts[idx];
+    idx++;
+  }
+  // QNH
+  if (idx < parts.length && /^Q\d{4}$/.test(parts[idx])) {
+    fields.qnh = parts[idx];
+    idx++;
+  }
+  // Trend (NOSIG, BECMG, TEMPO)
+  const trendParts = [];
+  while (idx < parts.length) {
+    trendParts.push(parts[idx]);
+    idx++;
+  }
+  fields.trend = trendParts.join(' ');
+  if (fields.trend === 'NOSIG' || fields.trend.includes('NOSIG')) fields.trend = 'NOSIG';
+
+  return fields;
+}
+
+function formatWind(part) {
+  if (!part) return 'N/A';
+  const m = part.match(/^(\d{3})(\d{2,3})(G(\d{2,3}))?(MPS|KT|KPH)$/i);
+  if (!m) return part;
+  const dir = m[1], speed = m[2], gust = m[4], unit = m[5].toUpperCase();
+  const dirNames = {'N':'北','NE':'东北','E':'东','SE':'东南','S':'南','SW':'西南','W':'西','NW':'西北'};
+  function dirTo(d) {
+    const idx = Math.round(parseInt(d) / 45) % 8;
+    return ['北','东北','东','东南','南','西南','西','西北'][idx];
+  }
+  let s = dir + '° ' + dirTo(dir) + '风 ' + speed + (unit === 'MPS' ? 'm/s' : 'kt');
+  if (unit === 'MPS') s += '（约' + Math.round(parseInt(speed)*2) + 'kt）';
+  if (gust) {
+    s += ' 阵风' + gust + (unit === 'MPS' ? 'm/s' : 'kt');
+    if (unit === 'MPS') s += '（约' + Math.round(parseInt(gust)*2) + 'kt）';
+  }
+  return s;
+}
+
+function formatVis(part) {
+  if (!part) return 'N/A';
+  if (part.includes('CAVOK')) return 'CAVOK（≥10km）';
+  const m = part.match(/^(\d{4})/);
+  if (m) {
+    const v = parseInt(m[1]);
+    if (v === 9999) return '≥10km';
+    return (v/1000).toFixed(1) + 'km';
+  }
+  return part;
+}
+
+function formatClouds(clouds) {
+  if (!clouds || clouds.length === 0) return 'N/A';
+  return clouds.map(c => {
+    const type = c.substring(0,3);
+    const alt = c.substring(3);
+    const names = {FEW:'少云',SCT:'疏云',BKN:'多云',OVC:'满天云',NSC:'无重要云',NCD:'无云',VV:'垂直能见度'};
+    const suffix = alt ? ' ' + parseInt(alt)*100 + 'ft' : '';
+    return (names[type] || type) + suffix;
+  }).join(', ');
+}
+
+function parseTaf(raw) {
+  if (!raw) return null;
+  // Remove "TAF " prefix and ICAO part
+  let taf = raw.replace(/^TAF\s+/, '');
+  // Extract issuance time: first 6 digits + Z
+  const issueMatch = taf.match(/^[A-Z]{4}\s(\d{6}Z)/);
+  const issueTime = issueMatch ? issueMatch[1] : '';
+  // Extract validity: next 8 digits
+  const validMatch = taf.match(/(\d{4})\/(\d{4})/);
+  const validFrom = validMatch ? validMatch[1] : '';
+  const validTo = validMatch ? validMatch[2] : '';
+
+  // Main body - everything between validity and first BECMG/TEMPO/PROB or TX/TN
+  const mainMatch = taf.match(/\/\d{4}\s+(.+?)(?=\s*(?:BECMG|TEMPO|PROB\d{2}|TX\d{2}\/|$))/);
+  const mainBody = mainMatch ? mainMatch[1].trim() : '';
+
+  // TEMPO/BECMG groups
+  const groups = [];
+  const groupRegex = /(BECMG|TEMPO)\s+(\d{4}\/\d{4})\s+(.+?)(?=\s*(?:BECMG|TEMPO|PROB\d{2}|TX\d{2}\/|TN\d{2}\/|$))/g;
+  let gm;
+  while ((gm = groupRegex.exec(taf)) !== null) {
+    groups.push({type: gm[1], period: gm[2], weather: gm[3].trim()});
+  }
+
+  // TX/TN
+  const txMatch = taf.match(/TX(\d{2})\/(\d{4}Z)/);
+  const tnMatch = taf.match(/TN(\d{2})\/(\d{4}Z)/);
+  const tx = txMatch ? txMatch[1] + '°C' : '';
+  const tn = tnMatch ? tnMatch[1] + '°C' : '';
+
+  return { raw, issueTime, validFrom, validTo, mainBody, groups, tx, tn };
+}
+
+function utcToBeijing(utc) {
+  // utc format: DDHHMMZ or DDZ
+  if (!utc) return '';
+  if (/^\d{2}\/\d{4}Z$/.test(utc)) {
+    const d = parseInt(utc.substring(0,2));
+    const h = parseInt(utc.substring(3,5));
+    const m = parseInt(utc.substring(5,7));
+    const date = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), d, h, m));
+    date.setHours(date.getHours() + 8);
+    return date.getDate() + '日 ' + String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0');
+  }
+  if (/^\d{6}Z$/.test(utc)) {
+    const d = parseInt(utc.substring(0,2));
+    const h = parseInt(utc.substring(2,4));
+    const m = parseInt(utc.substring(4,6));
+    const date = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), d, h, m));
+    date.setHours(date.getHours() + 8);
+    return date.getDate() + '日 ' + String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0') + ' 北京时';
+  }
+  if (/^\d{4}$/.test(utc)) {
+    const d = parseInt(utc.substring(0,2));
+    const h = parseInt(utc.substring(2,4));
+    const date = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), d, h));
+    date.setHours(date.getHours() + 8);
+    return date.getDate() + '日 ' + String(date.getHours()).padStart(2,'0') + ' 时';
+  }
+  if (/^\d{4}\/\d{4}$/.test(utc)) {
+    const from = utc.substring(0,4);
+    const to = utc.substring(5,9);
+    const fd = parseInt(from.substring(0,2)), fh = parseInt(from.substring(2,4));
+    const td = parseInt(to.substring(0,2)), th = parseInt(to.substring(2,4));
+    const fDate = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), fd, fh));
+    const tDate = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), td, th));
+    fDate.setHours(fDate.getHours() + 8);
+    tDate.setHours(tDate.getHours() + 8);
+    return fDate.getDate() + '日 ' + String(fDate.getHours()).padStart(2,'0') + ':00 – ' +
+           tDate.getDate() + '日 ' + String(tDate.getHours()).padStart(2,'0') + ':00 北京时';
+  }
+  return utc;
+}
+
+function detectWeather(raw) {
+  if (!raw) return [];
+  const upper = raw.toUpperCase();
+  const hits = [];
+  for (const item of WEATHER_ITEMS) {
+    const matched = item.keywords.some(kw => {
+      const re = new RegExp('\\b' + kw.replace(/[+#-]/g, '\\$&') + '\\b', 'i');
+      return re.test(upper);
+    });
+    if (matched) hits.push(item);
+  }
+  return hits;
+}
+
+function windyUrl(lat, lon, overlay) {
+  return 'https://embed.windy.com/embed2.html?lat=' + lat + '&lon=' + lon +
+    '&zoom=8&overlay=' + overlay + '&menu=&metricWind=kt&metricTemp=%C2%B0C';
+}
+
+function nmcUrl(region) {
+  if (!region) return null;
+  return 'https://www.nmc.cn/publish/radar/' + region + '.html';
+}
+
+function statusDot(level) {
+  if (level === 'danger') return '<span class="status-dot status-red"></span>';
+  if (level === 'caution') return '<span class="status-dot status-yellow"></span>';
+  return '<span class="status-dot status-green"></span>';
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAirportSection(city, metarFields, tafData, weatherHits, isDual) {
+  const level = weatherHits.length > 0 ? (weatherHits.some(h=>h.keywords.some(k=>['+TSRA','+SHRA','GR','SQ'].includes(k)))?'danger':'caution') : 'good';
+  const dot = statusDot(level);
+  const nmc = nmcUrl(city.nmc);
+  const hasMetar = !city.noMetar;
+
+  let html = '<div class="card">';
+  html += '<h2>' + dot + ' ' + city.name + ' ' + city.icao + ' · ' + city.airport + '</h2>';
+
+  // Radar & Windy links
+  html += '<h3>🌊 气象雷达 & 风场</h3>';
+  html += '<table class="links-table"><tr><th>NMC 雷达</th><th>Windy 雷达</th><th>Windy 风场</th></tr><tr>';
+  if (nmc) html += '<td><a href="' + nmc + '" target="_blank">' + (NMC_NAMES[city.nmc]||city.nmc) + '雷达拼图</a></td>';
+  else html += '<td>N/A（境外）</td>';
+  html += '<td><a href="' + windyUrl(city.lat, city.lon, 'radar') + '" target="_blank">Windy 雷达</a></td>';
+  html += '<td><a href="' + windyUrl(city.lat, city.lon, 'wind') + '" target="_blank">Windy 风场</a></td>';
+  html += '</tr></table>';
+
+  // Windy iframes
+  if (!isDual) {
+    html += '<div class="windy-row">';
+    html += '<iframe class="windy-frame" src="' + windyUrl(city.lat, city.lon, 'radar') + '" loading="lazy"></iframe>';
+    html += '<iframe class="windy-frame" src="' + windyUrl(city.lat, city.lon, 'wind') + '" loading="lazy"></iframe>';
+    html += '</div>';
+  }
+
+  // METAR
+  if (!hasMetar) {
+    html += '<h3>⚠️ METAR/TAF 不可用</h3>';
+    html += '<div class="alert alert-danger">' + city.name + city.airport + '为支线机场，不在 aviationweather.gov 覆盖范围。请参考上方 Windy 雷达与风场进行天气评估。</div>';
+  } else if (!metarFields) {
+    html += '<h3>⚠️ 暂无报文数据</h3>';
+    html += '<div class="alert alert-danger">未能获取 ' + city.icao + ' 的 METAR/TAF 数据，请稍后重试。</div>';
+  } else {
+    // Raw METAR/TAF
+    html += '<h3>📡 原始报文</h3>';
+    html += '<div class="code-block">' + metarFields.raw + '</div>';
+    if (tafData) html += '<div class="code-block">' + tafData.raw + '</div>';
+
+    // Parsed analysis
+    html += '<h3>🔍 报文分析</h3>';
+    html += '<table class="analysis-table">';
+    html += '<tr><td>时间</td><td>' + utcToBeijing(metarFields.time) + '</td></tr>';
+    html += '<tr><td>风</td><td>' + formatWind(metarFields.wind) + '</td></tr>';
+    html += '<tr><td>能见度</td><td>' + formatVis(metarFields.visibility) + '</td></tr>';
+    if (metarFields.weather) {
+      const isDanger = /TSRA|TS|\+TSRA|\+SHRA|GR|SQ|CB/i.test(metarFields.weather);
+      html += '<tr><td>天气现象</td><td' + (isDanger?' class="danger"':'') + '>' + metarFields.weather + '</td></tr>';
+    }
+    html += '<tr><td>云</td><td>' + formatClouds(metarFields.clouds) + '</td></tr>';
+    html += '<tr><td>温度/露点</td><td>' + (metarFields.tempDew || 'N/A') + '</td></tr>';
+    html += '<tr><td>QNH</td><td>' + (metarFields.qnh ? metarFields.qnh.substring(1) + ' hPa' : 'N/A') + '</td></tr>';
+    html += '<tr><td>趋势</td><td>' + (metarFields.trend || 'N/A') + '</td></tr>';
+    html += '</table>';
+
+    // TAF detailed
+    if (tafData) {
+      html += '<h3>📋 TAF 详情</h3>';
+      html += '<table class="taf-table">';
+      html += '<tr><td>有效时段</td><td>' + utcToBeijing(tafData.validFrom + '/' + tafData.validTo) + '</td></tr>';
+      if (tafData.mainBody) html += '<tr><td>主体</td><td>' + tafData.mainBody + '</td></tr>';
+      if (tafData.tx || tafData.tn) {
+        html += '<tr><td>温度</td><td>';
+        if (tafData.tx) html += '最高 ' + tafData.tx + ' ';
+        if (tafData.tn) html += '最低 ' + tafData.tn;
+        html += '</td></tr>';
+      }
+      html += '</table>';
+
+      // TEMPO/BECMG
+      if (tafData.groups.length > 0) {
+        html += '<h3>⚠️ TEMPO / BECMG（北京时）</h3>';
+        html += '<table class="tempo-table"><tr><th>类型</th><th>时段（北京时）</th><th>天气</th></tr>';
+        for (const g of tafData.groups) {
+          const isDanger = /TSRA|TS|\+TSRA|CB|GR|SQ/i.test(g.weather);
+          html += '<tr>';
+          html += '<td>' + (isDanger ? '🔴 ' : '') + g.type + '</td>';
+          html += '<td>' + utcToBeijing(g.period) + '</td>';
+          html += '<td' + (isDanger?' class="danger"':'') + '>' + g.weather + '</td>';
+          html += '</tr>';
+        }
+        html += '</table>';
+      } else {
+        html += '<h3>⚠️ TEMPO / BECMG（北京时）</h3>';
+        html += '<table class="tempo-table"><tr><th>时段</th><th>天气</th></tr><tr><td colspan="2">—</td></tr></table>';
+      }
+    }
+  }
+
+  html += '</div>';
+  return { html, level, weatherHits };
+}
+
+function render() {
+  const btn = document.getElementById('btn-query');
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  const results = document.getElementById('results');
+  const isDual = mode === 'dual';
+
+  let html = '';
+
+  // Render airport 1
+  const r1 = airportResults[0];
+  if (r1) {
+    const rendered = renderAirportSection(r1.city, r1.metarFields, r1.tafData, r1.weatherHits, isDual);
+    html += rendered.html;
+  }
+
+  if (isDual && airportResults[1]) {
+    const r2 = airportResults[1];
+    const rendered = renderAirportSection(r2.city, r2.metarFields, r2.tafData, r2.weatherHits, isDual);
+    html += rendered.html;
+  }
+
+  // Adverse weather analysis
+  const allHits = [];
+  const allCities = [];
+  for (const r of airportResults) {
+    if (r) {
+      allCities.push(r.city);
+      for (const h of r.weatherHits) {
+        if (!allHits.find(x => x.name === h.name)) allHits.push(h);
+      }
+    }
+  }
+
+  if (allHits.length > 0) {
+    html += '<div class="card"><h2>⚠️ 不利天气分析</h2>';
+    for (const hit of allHits) {
+      html += '<h3 style="color:var(--red);">' + hit.name + '</h3>';
+      html += '<div class="alert alert-danger">';
+      html += '<ul style="margin:0;padding-left:18px;">';
+      for (const d of hit.desc) {
+        html += '<li style="margin-bottom:6px;">' + d + '</li>';
+      }
+      html += '</ul></div>';
+    }
+    html += '</div>';
+  }
+
+  // Summary
+  html += '<div class="card summary-card"><h2>总结</h2>';
+  for (let i = 0; i < airportResults.length; i++) {
+    const r = airportResults[i];
+    if (!r) continue;
+    const hasMetar = !r.city.noMetar;
+    let status = '🟢', desc = '天气晴好';
+    if (!hasMetar && r.city.noMetar) {
+      status = '🟡'; desc = '支线机场，METAR 不可用，请参考 Windy';
+    } else if (r.weatherHits.length > 0) {
+      const isDanger = r.weatherHits.some(h => h.keywords.some(k => ['+TSRA','+SHRA','GR','SQ'].includes(k)));
+      status = isDanger ? '🔴' : '🟡';
+      desc = r.weatherHits.map(h => h.name).join('、');
+    }
+    html += '<div class="airport-summary">' + status + ' <strong>' + r.city.name + ' ' + r.city.icao + '</strong>：' + desc + '</div>';
+  }
+
+  if (isDual && airportResults.length === 2) {
+    const r1 = airportResults[0], r2 = airportResults[1];
+    if (r1 && r2 && r1.weatherHits.length === 0 && r2.weatherHits.length === 0) {
+      html += '<p style="margin-top:12px;color:var(--green);">✅ 航路全程天气良好，适航。</p>';
+    }
+  }
+  html += '</div>';
+
+  results.innerHTML = html;
+  results.classList.add('show');
+  results.scrollIntoView({behavior:'smooth'});
+}
+
+// ============================================================
+// MAIN QUERY
+// ============================================================
+let airportResults = [];
+
+async function query() {
+  const btn = document.getElementById('btn-query');
+  if (btn.disabled) return;
+
+  if (!selected1) {
+    alert('请先选择出发机场');
+    return;
+  }
+  if (mode === 'dual' && !selected2) {
+    alert('请选择目的机场');
+    return;
+  }
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+  airportResults = [];
+
+  const cities = [selected1];
+  if (mode === 'dual') cities.push(selected2);
+
+  const icaoCodes = cities.map(c => c.icao).join(',');
+
+  try {
+    let raw = '';
+    try {
+      raw = await fetchMetar(icaoCodes);
+    } catch(e) {
+      document.getElementById('results').innerHTML = '<div class="card"><div class="error-msg">获取气象数据失败：' + e.message + '。请检查网络后重试。</div></div>';
+      document.getElementById('results').classList.add('show');
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      return;
+    }
+
+    // Split by airport
+    const blocks = raw.split(/\n/)
+      .filter(l => l.trim())
+      .join('\n')
+      .split(/(?=METAR|TAF)/i)
+      .filter(b => b.trim());
+
+    for (let i = 0; i < cities.length; i++) {
+      const city = cities[i];
+      const icao = city.icao;
+
+      // Find matching block for this ICAO
+      const block = blocks.find(b => b.includes(icao)) || '';
+
+      const parsed = parseMetar(block);
+      const metarFields = parsed && parsed.metar ? extractMetarFields(parsed.metar) : null;
+      const tafData = parsed && parsed.taf ? parseTaf(parsed.taf) : null;
+
+      const allRaw = (parsed ? (parsed.metar||'') + ' ' + (parsed.taf||'') : block);
+      const weatherHits = detectWeather(allRaw);
+
+      airportResults.push({ city, metarFields, tafData, weatherHits });
+    }
+
+    render();
+  } catch(e) {
+    document.getElementById('results').innerHTML = '<div class="card"><div class="error-msg">处理数据时出错：' + e.message + '</div></div>';
+    document.getElementById('results').classList.add('show');
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+// Initialize
+setMode('single');
+</script>
+</body>
+</html>
