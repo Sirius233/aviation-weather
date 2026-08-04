@@ -251,7 +251,7 @@ function detectWeather(raw) {
   const seen = new Set();
   for (const [key, cfg] of Object.entries(WEATHER_SECTIONS)) {
     const matched = cfg.kw.some(kw => {
-      const re = new RegExp('\\b' + kw.replace(/[+#-]/g, '\\$&') + '\\b', 'i');
+      const re = new RegExp('(^|\\s)' + kw.replace(/[+#-]/g, '\\$&') + '(\\s|$)', 'i');
       return re.test(upper);
     });
     if (matched && !seen.has(key)) {
