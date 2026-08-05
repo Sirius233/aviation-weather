@@ -12,11 +12,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch METAR/TAF data
+      - name: Fetch METAR/TAF from NOAA (global coverage)
         run: |
           mkdir -p data
           ICAOS="ZBAA ZBAD ZBTJ ZBSJ ZBYN ZBDT ZBYC ZBHH ZBOW ZBCF ZBDS ZBTL ZBXL ZBLA ZBUL ZYTX ZYTL ZYCC ZYHB ZYYJ ZYMD ZYQQ ZYJM ZYHE ZYDD ZYJZ ZYCY ZSPD ZSSS ZSNJ ZSHC ZSWX ZSCG ZSNT ZSYA ZSXZ ZSLG ZSYN ZSNB ZSWZ ZSZS ZSLQ ZSYW ZSOF ZSFY ZSFZ ZSAM ZSQZ ZSWY ZSJN ZSQD ZSYT ZSWH ZSLY ZSJG ZSDY ZSWF ZSCN ZSGZ ZSGS ZSJD ZSYC ZSJJ ZHHH ZHYC ZHXF ZHSN ZHSY ZHCC ZHLY ZHNY ZGHA ZGDY ZGCD ZGGG ZGSZ ZGSD ZGOW ZGZJ ZGMX ZGNN ZGKL ZGZH ZGBH ZGWZ ZJHK ZJSY ZJQH ZUUU ZUTF ZUCK ZUWX ZUQJ ZPPP ZPLX ZPDL ZPJH ZPDQ ZPMS ZPNL ZUGY ZULS ZUNZ ZUBD ZUAL ZURK ZUMY ZUYB ZULZ ZUJZ ZUZH ZUNC ZUXC ZUDX ZLXY ZLYL ZLSN ZLLL ZLDH ZLJQ ZLXN ZLGL ZLIC ZWWW ZWSH ZWTN ZWAK ZWKL ZWKC ZWYN ZWKM ZWHM ZWAT ZWTK ZWTL WSSS VTBS RJTT RKSI WMKP"
-          curl -s "https://aviationweather.gov/api/data/metar?ids=${ICAOS}&taf=true&format=raw" -o data/metar.txt
+          > data/metar.txt
+          for ICAO in $ICAOS; do
+            # METAR
+            METAR=$(curl -s --max-time 8 "https://tgftp.nws.noaa.gov/data/observations/metar/stations/${ICAO}.TXT" | sed -n '2p' | sed 's/^ *//;s/ *$//')
+            if [ -n "$METAR" ]; then
+              echo "METAR $METAR" >> data/metar.txt
+            fi
+            # TAF
+            TAF=$(curl -s --max-time 8 "https://tgftp.nws.noaa.gov/data/forecasts/taf/stations/${ICAO}.TXT" | grep '^TAF' | sed 's/^ *//;s/ *$//')
+            if [ -n "$TAF" ]; then
+              echo "$TAF" >> data/metar.txt
+            fi
+          done
+          echo "Fetched $(wc -l < data/metar.txt) lines"
           # Convert to JS data file using python3 (robust JSON escaping)
           python3 -c "
 import json
