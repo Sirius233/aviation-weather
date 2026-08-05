@@ -17,16 +17,30 @@ jobs:
           mkdir -p data
           ICAOS="ZBAA ZBAD ZBTJ ZBSJ ZBYN ZBDT ZBYC ZBHH ZBOW ZBCF ZBDS ZBTL ZBXL ZBLA ZBUL ZYTX ZYTL ZYCC ZYHB ZYYJ ZYMD ZYQQ ZYJM ZYHE ZYDD ZYJZ ZYCY ZSPD ZSSS ZSNJ ZSHC ZSWX ZSCG ZSNT ZSYA ZSXZ ZSLG ZSYN ZSNB ZSWZ ZSZS ZSLQ ZSYW ZSOF ZSFY ZSFZ ZSAM ZSQZ ZSWY ZSJN ZSQD ZSYT ZSWH ZSLY ZSJG ZSDY ZSWF ZSCN ZSGZ ZSGS ZSJD ZSYC ZSJJ ZHHH ZHYC ZHXF ZHSN ZHSY ZHCC ZHLY ZHNY ZGHA ZGDY ZGCD ZGGG ZGSZ ZGSD ZGOW ZGZJ ZGMX ZGNN ZGKL ZGZH ZGBH ZGWZ ZJHK ZJSY ZJQH ZUUU ZUTF ZUCK ZUWX ZUQJ ZPPP ZPLX ZPDL ZPJH ZPDQ ZPMS ZPNL ZUGY ZULS ZUNZ ZUBD ZUAL ZURK ZUMY ZUYB ZULZ ZUJZ ZUZH ZUNC ZUXC ZUDX ZLXY ZLYL ZLSN ZLLL ZLDH ZLJQ ZLXN ZLGL ZLIC ZWWW ZWSH ZWTN ZWAK ZWKL ZWKC ZWYN ZWKM ZWHM ZWAT ZWTK ZWTL WSSS VTBS RJTT RKSI WMKP"
           > data/metar.txt
+          NOW_DAY=$(date -u +%d)
+          NOW_HOUR=$(date -u +%H)
+          NOW_MIN=$(date -u +%M)
           for ICAO in $ICAOS; do
-            # METAR
-            METAR=$(curl -s --max-time 8 "https://tgftp.nws.noaa.gov/data/observations/metar/stations/${ICAO}.TXT" | sed -n '2p' | sed 's/^ *//;s/ *$//')
-            if [ -n "$METAR" ]; then
-              echo "METAR $METAR" >> data/metar.txt
+            # METAR with freshness filter (discard reports older than 24h)
+            METAR_LINE=$(curl -s --max-time 8 "https://tgftp.nws.noaa.gov/data/observations/metar/stations/${ICAO}.TXT" | sed -n '2p' | sed 's/^ *//;s/ *$//')
+            if [ -n "$METAR_LINE" ]; then
+              DAY=$(echo "$METAR_LINE" | sed -n 's/^[A-Z]\{4\} \([0-9][0-9]\)[0-9]\{4\}Z.*/\1/p')
+              if [ -z "$DAY" ]; then
+                echo "METAR $METAR_LINE" >> data/metar.txt
+              else
+                # Simple freshness check: report day within last 1 day of current day
+                DAY_NUM=$((10#$DAY))
+                NOW_NUM=$((10#$NOW_DAY))
+                DIFF=$(( (NOW_NUM - DAY_NUM + 31) % 31 ))
+                if [ "$DIFF" -le 1 ]; then
+                  echo "METAR $METAR_LINE" >> data/metar.txt
+                fi
+              fi
             fi
             # TAF
-            TAF=$(curl -s --max-time 8 "https://tgftp.nws.noaa.gov/data/forecasts/taf/stations/${ICAO}.TXT" | grep '^TAF' | sed 's/^ *//;s/ *$//')
-            if [ -n "$TAF" ]; then
-              echo "$TAF" >> data/metar.txt
+            TAF_LINE=$(curl -s --max-time 8 "https://tgftp.nws.noaa.gov/data/forecasts/taf/stations/${ICAO}.TXT" | grep '^TAF' | head -1 | sed 's/^ *//;s/ *$//')
+            if [ -n "$TAF_LINE" ]; then
+              echo "$TAF_LINE" >> data/metar.txt
             fi
           done
           echo "Fetched $(wc -l < data/metar.txt) lines"
